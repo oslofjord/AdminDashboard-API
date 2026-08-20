@@ -1,0 +1,6 @@
+@Oslofjord.AdminDashboard.Api_HostAddress = http://localhost:5098
+
+GET {{Oslofjord.AdminDashboard.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Oslofjord.AdminDashboard.Api/Oslofjord.AdminDashboard.Api.csproj" />
+    <Project Path="src/Oslofjord.AdminDashboard.Client/Oslofjord.AdminDashboard.Client.csproj" />
+    <Project Path="src/Oslofjord.AdminDashboard.Contracts/Oslofjord.AdminDashboard.Contracts.csproj" />
+  </Folder>
+</Solution>
