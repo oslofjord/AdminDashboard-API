@@ -9,42 +9,42 @@ namespace Oslofjord.AdminDashboard.Api.Controllers;
 [Route("api/[controller]")]
 public class EventsController : ControllerBase
 {
-    private readonly IEventService _eventService;
+    private readonly ICentralApiService _centralApiService;
     private readonly ILogger<EventsController> _logger;
     
-    public EventsController(IEventService eventService, ILogger<EventsController> logger)
+    public EventsController(ICentralApiService centralApiService, ILogger<EventsController> logger)
     {
-        _eventService = eventService;
+        _centralApiService = centralApiService;
         _logger = logger;
     }
     
     /// <summary>
-    /// Get all events
+    /// Get all events from Central API
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<EnrichedEvent>>> GetAllEvents()
     {
         try
         {
-            var events = await _eventService.GetAllEventsAsync();
+            var events = await _centralApiService.GetEventsAsync();
             return Ok(events);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching all events");
+            _logger.LogError(ex, "Error fetching all events from Central API");
             return StatusCode(500, "Internal server error");
         }
     }
     
     /// <summary>
-    /// Get event by ID
+    /// Get event by ID from Central API
     /// </summary>
     [HttpGet("{id}")]
     public async Task<ActionResult<EnrichedEvent>> GetEventById(string id)
     {
         try
         {
-            var eventData = await _eventService.GetEventByIdAsync(id);
+            var eventData = await _centralApiService.GetEventByIdAsync(id);
             if (eventData == null)
                 return NotFound($"Event with id {id} not found");
             
@@ -52,148 +52,109 @@ public class EventsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching event {Id}", id);
+            _logger.LogError(ex, "Error fetching event {Id} from Central API", id);
             return StatusCode(500, "Internal server error");
         }
     }
     
     /// <summary>
-    /// Create a new event
+    /// Create a new event via Central API
     /// </summary>
     [HttpPost]
     public async Task<ActionResult<EnrichedEvent>> CreateEvent([FromBody] CreateEventDto dto)
     {
         try
         {
-            var eventData = new EnrichedEvent
-            {
-                Id = Guid.NewGuid().ToString(),
-                Name = dto.Name,
-                Description = dto.Description,
-                StartDate = dto.StartDate,
-                EndDate = dto.EndDate,
-                Location = dto.Location,
-                ImageUrl = dto.ImageUrl,
-                Type = (EventType)dto.Type,
-                Status = EventStatus.Draft,
-                IsBookable = dto.IsBookable,
-                MaxParticipants = dto.MaxParticipants,
-                BasePrice = dto.BasePrice,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-            
-            var created = await _eventService.CreateEventAsync(eventData);
+            var created = await _centralApiService.CreateEventAsync(dto);
             return CreatedAtAction(nameof(GetEventById), new { id = created.Id }, created);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating event");
+            _logger.LogError(ex, "Error creating event via Central API");
             return StatusCode(500, "Internal server error");
         }
     }
     
     /// <summary>
-    /// Update an existing event
+    /// Update an existing event via Central API
     /// </summary>
     [HttpPut("{id}")]
     public async Task<ActionResult<EnrichedEvent>> UpdateEvent(string id, [FromBody] UpdateEventDto dto)
     {
         try
         {
-            var existing = await _eventService.GetEventByIdAsync(id);
-            if (existing == null)
-                return NotFound($"Event with id {id} not found");
-            
-            if (dto.Name != null) existing.Name = dto.Name;
-            if (dto.Description != null) existing.Description = dto.Description;
-            if (dto.StartDate.HasValue) existing.StartDate = dto.StartDate.Value;
-            if (dto.EndDate.HasValue) existing.EndDate = dto.EndDate.Value;
-            if (dto.Location != null) existing.Location = dto.Location;
-            if (dto.ImageUrl != null) existing.ImageUrl = dto.ImageUrl;
-            if (dto.Type.HasValue) existing.Type = (EventType)dto.Type.Value;
-            if (dto.Status.HasValue) existing.Status = (EventStatus)dto.Status.Value;
-            if (dto.IsBookable.HasValue) existing.IsBookable = dto.IsBookable.Value;
-            if (dto.MaxParticipants.HasValue) existing.MaxParticipants = dto.MaxParticipants;
-            if (dto.BasePrice.HasValue) existing.BasePrice = dto.BasePrice;
-            
-            var updated = await _eventService.UpdateEventAsync(id, existing);
+            var updated = await _centralApiService.UpdateEventAsync(id, dto);
             return Ok(updated);
         }
-        catch (KeyNotFoundException)
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
             return NotFound($"Event with id {id} not found");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating event {Id}", id);
+            _logger.LogError(ex, "Error updating event {Id} via Central API", id);
             return StatusCode(500, "Internal server error");
         }
     }
     
     /// <summary>
-    /// Delete an event
+    /// Delete an event via Central API
     /// </summary>
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteEvent(string id)
     {
         try
         {
-            await _eventService.DeleteEventAsync(id);
+            await _centralApiService.DeleteEventAsync(id);
             return NoContent();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting event {Id}", id);
+            _logger.LogError(ex, "Error deleting event {Id} via Central API", id);
             return StatusCode(500, "Internal server error");
         }
     }
     
     /// <summary>
-    /// Enrich an event with additional data
+    /// Enrich an event with additional data via Central API
     /// </summary>
     [HttpPost("{id}/enrich")]
     public async Task<ActionResult<EnrichedEvent>> EnrichEvent(string id, [FromBody] EnrichEventDto dto)
     {
         try
         {
-            var enriched = await _eventService.EnrichEventAsync(
-                id,
-                dto.EnrichedDescription,
-                dto.ImageGallery,
-                dto.CustomProperties);
-            
+            var enriched = await _centralApiService.EnrichEventAsync(id, dto);
             return Ok(enriched);
         }
-        catch (KeyNotFoundException)
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
             return NotFound($"Event with id {id} not found");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error enriching event {Id}", id);
+            _logger.LogError(ex, "Error enriching event {Id} via Central API", id);
             return StatusCode(500, "Internal server error");
         }
     }
     
     /// <summary>
-    /// Import event from Momentus
+    /// Import event from Momentus via Central API
     /// </summary>
     [HttpPost("import")]
     public async Task<ActionResult<EnrichedEvent>> ImportFromMomentus([FromBody] ImportFromMomentusDto dto)
     {
         try
         {
-            var imported = await _eventService.ImportFromMomentusAsync(dto.MomentusId, dto.AutoEnrich);
+            var imported = await _centralApiService.ImportFromMomentusAsync(dto);
             return CreatedAtAction(nameof(GetEventById), new { id = imported.Id }, imported);
         }
-        catch (KeyNotFoundException ex)
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            return NotFound(ex.Message);
+            return NotFound("Momentus event not found");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error importing event from Momentus");
+            _logger.LogError(ex, "Error importing event from Momentus via Central API");
             return StatusCode(500, "Internal server error");
         }
     }

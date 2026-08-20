@@ -1,8 +1,5 @@
-using Microsoft.Azure.Cosmos;
 using Oslofjord.AdminDashboard.Api.Configuration;
-using Oslofjord.AdminDashboard.Api.Data;
 using Oslofjord.AdminDashboard.Api.Services;
-using Oslofjord.AdminDashboard.Contracts.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,62 +12,39 @@ builder.Services.AddSwaggerGen(c =>
     { 
         Title = "AdminDashboard API", 
         Version = "v1",
-        Description = "API for AdminDashboard - manages enriched events, room types, additions, and packages"
+        Description = "BFF (Backend for Frontend) for AdminDashboard - proxies requests to events-central-api"
     });
 });
 
 // Configure settings
-var cosmosDbSettings = builder.Configuration.GetSection(CosmosDbSettings.SectionName).Get<CosmosDbSettings>();
-var externalApiSettings = builder.Configuration.GetSection(ExternalApiSettings.SectionName).Get<ExternalApiSettings>();
+var centralApiSettings = builder.Configuration.GetSection(CentralApiSettings.SectionName).Get<CentralApiSettings>();
+builder.Services.Configure<CentralApiSettings>(builder.Configuration.GetSection(CentralApiSettings.SectionName));
 
-builder.Services.Configure<CosmosDbSettings>(builder.Configuration.GetSection(CosmosDbSettings.SectionName));
-builder.Services.Configure<ExternalApiSettings>(builder.Configuration.GetSection(ExternalApiSettings.SectionName));
-
-// Configure Cosmos DB
-if (cosmosDbSettings != null)
+// Configure HttpClient for Central API
+if (centralApiSettings != null)
 {
-    builder.Services.AddSingleton(sp =>
+    builder.Services.AddHttpClient<ICentralApiService, CentralApiService>(client =>
     {
-        var cosmosClient = new CosmosClient(cosmosDbSettings.EndpointUri, cosmosDbSettings.PrimaryKey);
-        return cosmosClient;
-    });
-    
-    // Register repositories
-    builder.Services.AddSingleton<ICosmosDbRepository<EnrichedEvent>>(sp =>
-    {
-        var cosmosClient = sp.GetRequiredService<CosmosClient>();
-        var database = cosmosClient.GetDatabase(cosmosDbSettings.DatabaseName);
-        var container = database.GetContainer(cosmosDbSettings.EventsContainerName);
-        return new CosmosDbRepository<EnrichedEvent>(container);
+        client.BaseAddress = new Uri(centralApiSettings.BaseUrl);
+        if (!string.IsNullOrEmpty(centralApiSettings.ApiKey))
+        {
+            client.DefaultRequestHeaders.Add("X-API-Key", centralApiSettings.ApiKey);
+        }
+        client.Timeout = TimeSpan.FromSeconds(centralApiSettings.TimeoutSeconds);
     });
 }
-
-// Configure HttpClients for external APIs
-if (externalApiSettings != null)
+else
 {
-    builder.Services.AddHttpClient<IMomentusService, MomentusService>(client =>
+    // Default configuration if settings not found
+    builder.Services.AddHttpClient<ICentralApiService, CentralApiService>(client =>
     {
-        client.BaseAddress = new Uri(externalApiSettings.MomentusApiUrl);
-        if (!string.IsNullOrEmpty(externalApiSettings.MomentusApiKey))
-        {
-            client.DefaultRequestHeaders.Add("X-API-Key", externalApiSettings.MomentusApiKey);
-        }
-        client.Timeout = TimeSpan.FromSeconds(30);
-    });
-    
-    builder.Services.AddHttpClient<IRmsService, RmsService>(client =>
-    {
-        client.BaseAddress = new Uri(externalApiSettings.RmsApiUrl);
-        if (!string.IsNullOrEmpty(externalApiSettings.RmsApiKey))
-        {
-            client.DefaultRequestHeaders.Add("X-API-Key", externalApiSettings.RmsApiKey);
-        }
+        client.BaseAddress = new Uri("http://localhost:5100");
         client.Timeout = TimeSpan.FromSeconds(30);
     });
 }
 
 // Register services
-builder.Services.AddScoped<IEventService, EventService>();
+// No additional services needed - CentralApiService handles everything
 
 // Configure CORS
 builder.Services.AddCors(options =>
