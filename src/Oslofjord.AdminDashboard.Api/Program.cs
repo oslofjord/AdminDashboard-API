@@ -20,6 +20,10 @@ builder.Services.AddSwaggerGen(c =>
 var centralApiSettings = builder.Configuration.GetSection(CentralApiSettings.SectionName).Get<CentralApiSettings>();
 builder.Services.Configure<CentralApiSettings>(builder.Configuration.GetSection(CentralApiSettings.SectionName));
 
+// Register JWT services
+builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddJwtAuthentication(builder.Configuration);
+
 // Configure HttpClient for Central API
 if (centralApiSettings != null)
 {
@@ -89,6 +93,7 @@ app.UseHttpsRedirection();
 
 app.UseCors();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

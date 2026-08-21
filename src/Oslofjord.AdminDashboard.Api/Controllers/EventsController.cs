@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Oslofjord.AdminDashboard.Contracts.Models;
 using Oslofjord.AdminDashboard.Contracts.Dtos;
@@ -7,6 +8,7 @@ namespace Oslofjord.AdminDashboard.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize] // Require authentication for all endpoints
 public class EventsController : ControllerBase
 {
     private readonly ICentralApiService _centralApiService;
